@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador - Ley de Beer-Lambert</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-color: #38bdf8;
+            --border-color: #334155;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: var(--accent-color);
+            margin-bottom: 5px;
+            font-size: 1.8rem;
+        }
+
+        p.subtitle {
+            color: #94a3b8;
+            margin-top: 0;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        /* Área de simulación visual */
+        .simulation-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            background-color: #090d16;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            max-width: 100%;
+        }
+
+        /* Panel de Controles */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .control-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-card label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-card label span.val {
+            color: var(--accent-color);
+        }
+
+        input[type="range"] {
+            accent-color: var(--accent-color);
+            cursor: pointer;
+        }
+
+        /* Panel de Resultados */
+        .results-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+        }
+
+        .result-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .result-item .label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+        }
+
+        .result-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-top: 5px;
+        }
+
+        .formula-box {
+            text-align: center;
+            font-size: 1.1rem;
+            color: #cbd5e1;
+            background-color: #0f172a;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Simulador de la Ley de Beer-Lambert</h1>
+    <p class="subtitle">Absorción de luz en función de concentración, absortividad y longitud del camino óptico</p>
+
+    <div class="container">
+        
+        <div class="formula-box">
+            $$A = \epsilon \cdot b \cdot c$$
+        </div>
+
+        <!-- Lienzo para la Animación -->
+        <div class="simulation-box">
+            <canvas id="simCanvas" width="800" height="300"></canvas>
+        </div>
+
+        <!-- Panel de Resultados -->
+        <div class="results-panel">
+            <div class="result-item">
+                <span class="label">Absortividad ($\epsilon$)</span>
+                <span class="value" id="resEpsilon">0.50</span>
+            </div>
+            <div class="result-item">
+                <span class="label">Ancho Celda ($b$)</span>
+                <span class="value" id="resB">1.00 cm</span>
+            </div>
+            <div class="result-item">
+                <span class="label">Concentración ($c$)</span>
+                <span class="value" id="resC">0.50 M</span>
+            </div>
+            <div class="result-item">
+                <span class="label">Absorbancia ($A$)</span>
+                <span class="value" id="resA" style="color: #f43f5e;">0.250</span>
+            </div>
+            <div class="result-item">
+                <span class="label">Transmitancia ($T$)</span>
+                <span class="value" id="resT" style="color: #10b981;">56.2 %</span>
+            </div>
+        </div>
+
+        <!-- Panel de Controles -->
+        <div class="controls-grid">
+            <div class="control-card">
+                <label>Coeficiente de Extinción ($\epsilon$): <span class="val" id="valEpsilon">0.50</span></label>
+                <input type="range" id="inputEpsilon" min="0.1" max="2.0" step="0.05" value="0.5">
+            </div>
+
+            <div class="control-card">
+                <label>Ancho de la Celda ($b$): <span class="val" id="valB">1.00 cm</span></label>
+                <input type="range" id="inputB" min="0.5" max="2.5" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-card">
+                <label>Concentración ($c$): <span class="val" id="valC">0.50 M</span></label>
+                <input type="range" id="inputC" min="0.0" max="2.0" step="0.05" value="0.5">
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Entradas y Salidas
+        const inputEpsilon = document.getElementById('inputEpsilon');
+        const inputB = document.getElementById('inputB');
+        const inputC = document.getElementById('inputC');
+
+        const valEpsilon = document.getElementById('valEpsilon');
+        const valB = document.getElementById('valB');
+        const valC = document.getElementById('valC');
+
+        const resEpsilon = document.getElementById('resEpsilon');
+        const resB = document.getElementById('resB');
+        const resC = document.getElementById('resC');
+        const resA = document.getElementById('resA');
+        const resT = document.getElementById('resT');
+
+        // Partículas en solución
+        let particles = [];
+
+        function initParticles() {
+            particles = [];
+            for (let i = 0; i < 400; i++) {
+                particles.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    r: Math.random() * 2 + 1.5,
+                    vx: (Math.random() - 0.5) * 0.002,
+                    vy: (Math.random() - 0.5) * 0.002
+                });
+            }
+        }
+        initParticles();
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const epsilon = parseFloat(inputEpsilon.value);
+            const b = parseFloat(inputB.value);
+            const c = parseFloat(inputC.value);
+
+            // Cálculo de Ley de Beer
+            const A = epsilon * b * c;
+            const T = Math.pow(10, -A); // Transmitancia (0 a 1)
+
+            // Actualizar etiquetas
+            valEpsilon.textContent = epsilon.toFixed(2);
+            valB.textContent = b.toFixed(2) + " cm";
+            valC.textContent = c.toFixed(2) + " M";
+
+            resEpsilon.textContent = epsilon.toFixed(2);
+            resB.textContent = b.toFixed(2) + " cm";
+            resC.textContent = c.toFixed(2) + " M";
+            resA.textContent = A.toFixed(3);
+            resT.textContent = (T * 100).toFixed(1) + " %";
+
+            // Geometría de la cubeta/celda
+            const cellWidth = b * 120; // 1 cm = 120px
+            const cellHeight = 180;
+            const cellX = (canvas.width - cellWidth) / 2;
+            const cellY = (canvas.height - cellHeight) / 2;
+
+            // 1. DIBUJAR FUENTE DE LUZ (Izquierda)
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(10, canvas.height / 2 - 30, 40, 60);
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(45, canvas.height / 2 - 20, 10, 40);
+
+            // 2. DIBUJAR HAZ INCIDENTAL (Entrada - Luz 100% I0)
+            const beamY = canvas.height / 2 - 25;
+            const beamHeight = 50;
+
+            let gradientIn = ctx.createLinearGradient(55, 0, cellX, 0);
+            gradientIn.addColorStop(0, 'rgba(56, 189, 248, 0.9)');
+            gradientIn.addColorStop(1, 'rgba(56, 189, 248, 0.8)');
+            ctx.fillStyle = gradientIn;
+            ctx.fillRect(55, beamY, cellX - 55, beamHeight);
+
+            // 3. DIBUJAR SOLUCIÓN Y CUBETA
+            // Color de la solución basado en la concentración y epsilon
+            const solutionAlpha = Math.min(1, (c * epsilon) / 2);
+            ctx.fillStyle = `rgba(14, 116, 144, ${0.1 + solutionAlpha * 0.8})`;
+            ctx.fillRect(cellX, cellY, cellWidth, cellHeight);
+
+            // Dibujar Moléculas/Puntos según la concentración (c)
+            const activeParticleCount = Math.floor(c * 200); // Número visible según concentración
+            ctx.fillStyle = '#38bdf8';
+            for (let i = 0; i < activeParticleCount; i++) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0) p.x = 1;
+                if (p.x > 1) p.x = 0;
+                if (p.y < 0) p.y = 1;
+                if (p.y > 1) p.y = 0;
+
+                let px = cellX + p.x * cellWidth;
+                let py = cellY + p.y * cellHeight;
+
+                ctx.beginPath();
+                ctx.arc(px, py, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Haz de luz disminuyendo DENTRO de la celda
+            let gradientInside = ctx.createLinearGradient(cellX, 0, cellX + cellWidth, 0);
+            gradientInside.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
+            gradientInside.addColorStop(1, `rgba(56, 189, 248, ${0.8 * T})`);
+            ctx.fillStyle = gradientInside;
+            ctx.fillRect(cellX, beamY, cellWidth, beamHeight);
+
+            // Marco de la Cubeta (Vidrio)
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(cellX, cellY, cellWidth, cellHeight);
+
+            // 4. DIBUJAR HAZ TRANSMITIDO (Salida - Luz I)
+            const outputX = cellX + cellWidth;
+            const outputWidth = canvas.width - outputX - 60;
+
+            if (outputWidth > 0) {
+                ctx.fillStyle = `rgba(56, 189, 248, ${Math.max(0.02, 0.8 * T)})`;
+                ctx.fillRect(outputX, beamY, outputWidth, beamHeight);
+            }
+
+            // 5. DIBUJAR DETECTOR (Derecha)
+            const detectorX = canvas.width - 50;
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(detectorX, canvas.height / 2 - 40, 30, 80);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(detectorX, canvas.height / 2 - 40, 30, 80);
+
+            requestAnimationFrame(draw);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
